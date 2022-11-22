@@ -1,0 +1,17 @@
+{{template "base" .}}
+{{define "body" }}
+    <div id="data">
+        <form method="post"action="/gameArea">
+            Player : <input type="text" name="pseudo" placeholder="entrer un pseudo">
+            <input type="submit" value="valider">
+        </form>
+    </div>
+    <script>
+
+        // function valider() {
+        //     var el = document.querySelector('[name="pseudo"]').value;
+        //     let data = {"channel": "login", "data": el}
+        // }
+
+    </script>
+{{end}}

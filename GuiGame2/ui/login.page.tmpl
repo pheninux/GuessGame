@@ -1,0 +1,39 @@
+{{template "base" .}}
+{{define "body" }}
+    <div id="data">
+        <form method="post" action="/gameArea">
+            Player : <input type="text" name="pseudo" placeholder="entrer un pseudo">
+            <input type="button" value="valider" onclick="valider()">
+        </form>
+    </div>
+    <script>
+
+        function valider() {
+            var pseudo = document.querySelector('[name="pseudo"]').value;
+           // let data = {"channel": "login", "data": el}
+
+            let socket = new WebSocket("ws://127.0.0.1:4000/wsHandler");
+            console.log("Attempting Connection...");
+            socket.onopen = () => {
+                console.log("Successfully Connected");
+            };
+            socket.onerror = error => {
+                console.log("Socket Error: ", error);
+            };
+            socket.onclose = event => {
+                console.log("Socket Closed Connection: ", event);
+                socket.send("Client Closed!")
+            };
+            socket.onmessage = (msg) => {
+                console.log(msg);
+                var el = document.querySelector('#data');
+                let data = JSON.parse(msg.data);
+                console.log(data)
+                el.innerHTML = data.template;
+            };
+            // console.log(data);
+            //socket.send(JSON.stringify(data));
+        }
+
+    </script>
+{{end}}
