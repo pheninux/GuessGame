@@ -1,0 +1,12 @@
+{{define "word"}}
+    <!--- word ---->
+    {{with .}}
+        <div class="container" style="margin-top: 3em ;">
+            {{range $i , $v :=  .RandWord}}
+                <div id="w{{$i}}" class="item-word updateFontWord animation-w">
+                    {{$v}}
+                </div>
+            {{end}}
+        </div>
+    {{end}}
+{{end}}

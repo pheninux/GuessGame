@@ -1,0 +1,51 @@
+{{define "players" }}
+    <!--- player ---->
+    <div class="container screen-mobile">
+    {{with .}}
+        {{range .Users}}
+            <div class="p-p-container item {{.Turn}}">
+                 <span>
+                      <img class="img-avatar" src="/static/asset/img.png" height="50px" width="50px"
+                           style="border-radius: 50%">
+                 </span>
+
+                <P class="space">{{.Pseudo}}</P>
+                {{if not (eq .Status  "ready")}}
+                    <button id="{{.Id}}" class="btn-ready" onclick="readySet()">Click to get ready</button>
+                {{end}}
+
+                <span>
+                    {{with .Status}}
+                        {{ if eq . "ready"}}
+                            <img id="img-ready" src="/static/asset/ready.png" class="win"
+                                 style="background: transparent !important;">
+                        {{else}}
+                            <img id="img-ready" src="/static/asset/notReady.png" class="win"
+                                 style="background: transparent !important;">
+                        {{end}}
+                    {{end}}
+                    {{if .Win}}
+                        <img src="/static/asset/win.png" class="win" style="background: transparent !important;">
+                    {{end}}
+               </span>
+            </div>
+        {{end}}
+
+        </div>
+    {{end}}
+    {{with .}}
+        {{range .Users}}
+            {{if not (eq .Status  "ready")}}
+                <p id="{{.Id}}" class="p-ready">waiting for {{.Pseudo}} to get ready</p>
+            {{end}}
+        {{end}}
+        <div style="display: flex ; justify-items: center">
+            {{if eq .StartGame true}}
+                {{if  not ( eq .TimeTick  0)}}
+                    <p style="justify-items: center">starting game in {{.TimeTick}}</p>
+                {{end}}
+
+            {{end}}
+        </div>
+    {{end}}
+{{end}}

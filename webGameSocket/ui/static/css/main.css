@@ -1,0 +1,148 @@
+* {
+    box-sizing: border-box;
+}
+
+input {
+    margin-top: 2em;
+    text-align: center;
+    width: 25em;
+    font-size: larger;
+}
+
+body {
+    margin: 0;
+    font-family: fantasy;
+    background: #ffffff;
+}
+
+.img-avatar {
+    margin-right: 5px;
+}
+
+.container {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 0;
+    flex-wrap: wrap;
+
+}
+
+.container-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.item {
+    flex-grow: 4;
+    background: rgba(244, 244, 128, 0.97);
+}
+
+.current {
+    background: #a5d3a5;
+}
+
+.wait {
+    background: #da8b8b;
+}
+
+.start {
+    background: #abee6e;
+}
+
+.win {
+    width: 20px;
+    height: 20px;
+}
+
+.item-word {
+    flex-grow: 2;
+    border: 3px solid olivedrab;
+    font-size: 10em;
+    font-family: sans-serif;
+    flex: 12.5%;
+}
+
+.p-p-container {
+    display: flex;
+    align-items: center;
+    text-align: left;
+    margin: 0;
+    border: 1px solid black;
+    flex: 24%;
+}
+
+
+span {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+}
+
+.timer {
+    font-family: sans-serif;
+    font-size: 10em;
+}
+
+.space {
+    flex-grow: 3;
+}
+
+.center {
+    justify-content: center;
+    align-items: center;
+}
+
+@media screen and (max-width: 470px) {
+
+}
+
+@media screen and (max-width: 670px) {
+    .updateFontWord {
+        font-size: 3em;
+    }
+}
+
+.animation-w {
+    position: relative;
+    animation: mymove 2s;
+    animation-name: myAnim;
+}
+
+#w0 {
+    animation-timing-function: ease-out;
+}
+
+#w1 {
+    animation-timing-function: ease;
+}
+
+#w2 {
+    animation-timing-function: ease-in;
+}
+
+#w3 {
+    animation-timing-function: linear;
+}
+
+#w4 {
+    animation-timing-function: ease-in-out;
+}
+
+#w5 {
+    animation-timing-function: linear;
+}
+
+@keyframes myAnim {
+    from {
+        top: 1000px;
+    }
+    to {
+        top: 0px;
+    }
+}
+
+.center-verticaly {
+    width: 100px;
+    height: 100px;
+}
