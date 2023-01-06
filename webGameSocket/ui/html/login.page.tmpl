@@ -1,0 +1,17 @@
+{{template "base" .}}
+{{define "body"}}
+    <div id="data">
+
+        <div id="login-div">
+            {{with .}}
+                {{if eq .Status "rejected"}}
+                    <p>Sorry , full number of player max 4</p>
+                {{end}}
+            {{end}}
+            <div class="container-column center">
+                <input id="pseudo" type="text" placeholder="Tape your login">
+                <input type="button" onclick="valider()" value="Ok" style="width: 100px !important;">
+            </div>
+        </div>
+    </div>
+{{end}}

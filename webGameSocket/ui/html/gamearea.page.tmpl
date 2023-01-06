@@ -1,0 +1,14 @@
+{{template "base" .}}
+{{define "body" }}
+    <div id="data">
+        {{template "players" .}}
+        {{template "word" .}}
+
+        <!---- input ---->
+        <div class="container center" style="margin-top: 1em ">
+            <input id="guessWord" type="text" required placeholder="Tape your word" onkeypress="sendGuess(event)"/>
+        </div>
+
+        {{template "timer" .}}
+    </div>
+{{end}}

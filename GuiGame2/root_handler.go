@@ -14,8 +14,8 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("/gameArea", app.gameArea)
 	mux.HandleFunc("/wsHandler", app.wslogin)
 
-	fileServer := http.FileServer(http.Dir("./ui/static/"))
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
+	fileServer := http.FileServer(http.Dir("./ui/ui/"))
+	mux.Handle("/static/", http.StripPrefix("/ui", fileServer))
 
 	return mux
 

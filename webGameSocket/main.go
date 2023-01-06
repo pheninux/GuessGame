@@ -8,7 +8,9 @@ import (
 	"github.com/gorilla/websocket"
 	"html/template"
 	"log"
+	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,8 +22,14 @@ const (
 	maxMessageSize = 512
 )
 
+var temp map[string]*template.Template
+var users []User
 var clients map[*client]bool
-
+var startgame bool
+var startCount = 4
+var words = []string{"dropât", "mirons", "lumens", "amples", "meulez", "filées", "userai", "mégota", "battit", "entuba", "cuvées", "rances", "liftes", "boueux", "frotte", "parvis", "écriez", "obséda", "dianes", "fédéré", "piffés", "vendre", "tincal", "gringe", "perdît", "fâcher", "baissé", "langui", "dorent", "dévoue", "adjugé", "paillé", "payais", "rapina", "truite", "adapté", "grands", "frirez", "luises", "chérît", "tordît", "rejoué", "sassés", "cosmos", "arceau", "mollah", "louvas", "irions", "fripon", "amande", "blesse", "serins", "mariés", "tendît", "rocker", "prison", "chauve", "montra", "moirât", "grigna", "airent", "gommât", "zingue", "caille", "classa", "guéait", "values", "ombrât", "repart", "loupai", "balaya", "lavais", "brûlez", "draves", "barrât", "gallon", "criait", "lapent", "emmura", "flouée", "frappe", "poquas", "alitas", "épices", "viseux", "scions", "clapit", "xystes", "boulée", "frêles", "linéal", "crèche", "alitât", "pincer", "dodues", "dégota", "birème", "excite", "tachas", "puffin", "bourda", "peseta", "ormoie", "parque", "tissés", "gésier", "renais", "geints", "marrai", "paraît", "dévide", "égermé", "gavial", "gattes", "roguée", "mazout", "alloué", "ruchez", "étoupé", "épeure", "tillât", "épuise", "nouvel", "anisée", "noueux", "santon", "apures", "balisa", "épeler", "pannés", "greffé", "ramera", "dorait", "épeire", "jaspai", "étêtai", "veiner", "élimai", "médisé", "tançât", "pulsas", "bannez", "déniai", "décape", "vengea", "moisas", "écarté", "publie", "tarait", "zazous"}
+var rw string     // selected word
+var userIndex = 0 // the player start index
 var upgrade = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -30,20 +38,34 @@ var upgrade = websocket.Upgrader{
 	},
 }
 
+type dataTemplate struct {
+	Users        []User   `json:"users"`
+	UserNotReady []User   `json:"user_not_ready"`
+	StartGame    bool     `json:"start_game"`
+	TimeTick     int      `json:"time_tick"`
+	RandWord     []string `json:"choose_word"`
+}
+
 type client struct {
-	user        user
+	user        *User
 	conn        *websocket.Conn
 	mu          sync.Mutex
 	broadcast   chan serverEvent
 	register    chan *client
 	unregister  chan serverEvent
+	ready       chan serverEvent
 	clientEvent *clientEvent
 }
 
-type user struct {
-	id     string `json:"id"`
-	pseudo string `json:"pseudo"`
-	status string `json:"status"`
+type User struct {
+	Id      string `json:"id"`
+	Pseudo  string `json:"pseudo"`
+	Status  string `json:"status"`
+	Logo    []byte
+	Turn    string `json:"turn"`
+	Current bool   `json:"current"`
+	Win     bool
+	Score   int `json:"score"`
 }
 
 type clientEvent struct {
@@ -59,12 +81,22 @@ type serverEvent struct {
 
 func main() {
 
+	mux := http.NewServeMux()
+	//t, err := newTemplateCache("./ui/html/")
+	t, err := newTemplateCache("/Users/phenix/home/go/src/GuessGame/webGameSocket/ui/html")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	temp = t
+
 	clients = make(map[*client]bool)
-	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		http.ServeFile(writer, request, "C:\\Users\\a706836\\go\\src\\DevineGame\\webGameSocket\\login.tmpl")
+
+	mux.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		render(writer, request, "login.page.tmpl", nil)
 	})
 
-	http.HandleFunc("/ws", func(writer http.ResponseWriter, request *http.Request) {
+	mux.HandleFunc("/ws", func(writer http.ResponseWriter, request *http.Request) {
 
 		conn, err := upgrade.Upgrade(writer, request, nil)
 		if err != nil {
@@ -77,18 +109,31 @@ func main() {
 
 	})
 
-	fileServer := http.FileServer(http.Dir("C:\\Users\\a706836\\go\\src\\DevineGame\\webGameSocket\\static"))
-	http.Handle("/static/", http.StripPrefix("/static", fileServer))
+	//fileServer := http.FileServer(http.Dir("./ui/static/"))
+	fileServer := http.FileServer(http.Dir("/Users/phenix/home/go/src/GuessGame/webGameSocket/ui/static/"))
+	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
 
 	fmt.Println("starting server at : 4000 port")
-	log.Fatalln(http.ListenAndServe(":4000", nil))
+	log.Fatalln(http.ListenAndServe(":4000", mux))
+}
+
+func unAutorizeClient(c *client) {
+	c.user.Status = "rejected"
+	c.broadcast <- serverEvent{
+		SocketID: c.user.Id,
+		Template: renderToString("login.page.tmpl", c.user),
+		Status:   "rejected",
+	}
+
+	fmt.Println(c)
 }
 
 func createNewSocketClient(conn *websocket.Conn) {
 	cli := &client{
-		user: user{
-			id:     uuid.New().String(),
-			status: "join",
+		user: &User{
+			Id:     uuid.New().String(),
+			Status: "join",
+			Turn:   "wait",
 		},
 		clientEvent: &clientEvent{
 			Event:   "join",
@@ -99,9 +144,10 @@ func createNewSocketClient(conn *websocket.Conn) {
 		broadcast:  make(chan serverEvent),
 		unregister: make(chan serverEvent),
 		register:   make(chan *client),
+		ready:      make(chan serverEvent),
 	}
 
-	fmt.Println("client joined session id => ", cli.user.id)
+	fmt.Println("client joined session id => ", cli.user.Id)
 	clients[cli] = true
 	fmt.Println("clients in session ", clients)
 	go cli.writer()
@@ -121,13 +167,18 @@ func renderTemplate(fileDir string, data interface{}) string {
 	return buff.String()
 }
 
-func getusers() (u []user) {
+func getusers() (u []User) {
+
 	for c := range clients {
-		u = append(u, c.user)
-		fmt.Println(c.user)
+		u = append(u, *c.user)
 	}
-	fmt.Println("users => ", u)
 	return u
+}
+
+func initTurnToWait() {
+	for c := range clients {
+		c.user.Turn = "wait"
+	}
 }
 
 func (client *client) writer() {
@@ -164,8 +215,20 @@ func (client *client) writer() {
 			if err := client.conn.WriteJSON(se); err != nil {
 				fmt.Println(err)
 			}
+		case se, ok := <-client.ready:
+			err := client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err != nil {
+				fmt.Println(err)
+			}
+			if !ok {
+				client.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := client.conn.WriteJSON(se); err != nil {
+				fmt.Println(err)
+			}
 		case <-ticker.C:
-			fmt.Println("im in case tikcet.C")
+			//fmt.Println("im in case tikcet.C")
 			client.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := client.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
@@ -176,14 +239,42 @@ func (client *client) writer() {
 }
 
 func handleLoginClient(c *client) {
-	c.user.pseudo = c.clientEvent.Payload
-	for l := range clients {
-		se := serverEvent{
-			SocketID: l.user.id,
-			Template: renderTemplate("C:\\Users\\a706836\\go\\src\\DevineGame\\webGameSocket\\gamearea.tmpl", getusers()),
-			Status:   "join",
+	c.user.Pseudo = c.clientEvent.Payload
+	users = getusers()
+	ResponseToAllUsers("gamearea.page.tmpl", "broadcast", dataTemplate{
+		Users:        users,
+		UserNotReady: nil,
+		StartGame:    startgame,
+		TimeTick:     startCount,
+	})
+}
+
+func readyUser(c *client) {
+	c.user.Status = "ready"
+	// check if we can start th game
+	startgame = true
+
+	// iterate userIndex if one of then not ready don't start game
+	for c := range clients {
+		if c.user.Status != "ready" {
+			startgame = false
 		}
-		l.broadcast <- se
+	}
+
+	if startgame {
+		ran := rand.Intn(len(users))
+		users[ran].Turn = "start"
+
+	}
+	ResponseToAllUsers("gamearea.page.tmpl", "ready", dataTemplate{
+		Users:        users,
+		UserNotReady: nil,
+		StartGame:    startgame,
+		TimeTick:     startCount,
+	})
+
+	if startgame {
+		go timeTick()
 	}
 
 }
@@ -205,6 +296,10 @@ func (client *client) reader() {
 		client.clientEvent = &se
 		switch se.Event {
 		case "login":
+			if len(clients) == 5 {
+				unAutorizeClient(client)
+				return
+			}
 			handleLoginClient(client)
 		case "closed":
 			fmt.Println("im here too closed")
@@ -212,25 +307,54 @@ func (client *client) reader() {
 		case "error":
 			fmt.Println("im here too in error")
 			unRegisterAndCloseConnection(client)
-		case "test2":
-			fmt.Println("test event fired from => ", client.user.pseudo)
+		case "ready":
+			readyUser(client)
+		case "guess":
+			fmt.Println("coucou")
+			checkGuess(client)
 		}
 
 	}
 
 }
 
-func unRegisterAndCloseConnection(client *client) {
-	client.user.status = "disconnect"
+func checkGuess(client *client) {
 
-	for l := range clients {
-		se := serverEvent{
-			SocketID: l.user.id,
-			Template: renderTemplate("C:\\Users\\a706836\\go\\src\\DevineGame\\webGameSocket\\gamearea.tmpl", getusers()),
-			Status:   l.user.status,
-		}
-		l.unregister <- se
+	guess := client.clientEvent.Payload
+
+	if checkWord(guess, rw) {
+		client.user.Score++
+		userIndex++
+		users := getusers()
+		ResponseToAllUsers("gamearea.page.tmpl", "guess", dataTemplate{
+			Users:        users,
+			UserNotReady: nil,
+			StartGame:    startgame,
+			TimeTick:     startCount,
+		})
+	} else {
+		cw := choosedWord(words)
+		userIndex++
+		users := getusers()
+		ResponseToAllUsers("gamearea.page.tmpl", "guess", dataTemplate{
+			Users:        users,
+			UserNotReady: nil,
+			StartGame:    startgame,
+			TimeTick:     startCount,
+			RandWord:     cw,
+		})
 	}
+}
+
+func unRegisterAndCloseConnection(client *client) {
+	client.user.Status = "disconnect"
+	users := getusers()
+	ResponseToAllUsers("gamearea.page.tmpl", "unregister", dataTemplate{
+		Users:        users,
+		UserNotReady: nil,
+		StartGame:    startgame,
+		TimeTick:     startCount,
+	})
 	delete(clients, client)
 	client.conn.Close()
 }
@@ -243,4 +367,84 @@ func setSocketPayloadReadConfig(c *client) {
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+}
+
+func timeTick() {
+	c := time.Tick(time.Second * 1)
+myForTick:
+	for {
+		select {
+		case <-c:
+			startCount--
+			ResponseToAllUsers("gamearea.page.tmpl", "ready", dataTemplate{
+				Users:        users,
+				UserNotReady: nil,
+				StartGame:    startgame,
+				TimeTick:     startCount,
+			})
+			if startCount == 0 {
+				//send word to users
+				cw := choosedWord(words)
+				ResponseToAllUsers("gamearea.page.tmpl", "guess", dataTemplate{
+					Users:        users,
+					UserNotReady: nil,
+					StartGame:    startgame,
+					TimeTick:     startCount,
+					RandWord:     cw,
+				})
+				break myForTick
+			}
+		}
+	}
+
+}
+
+func ResponseToAllUsers(temp string, stat string, dt dataTemplate) {
+	for l := range clients {
+		se := serverEvent{
+			SocketID: l.user.Id,
+			Template: renderToString(temp, dt),
+			Status:   l.user.Status,
+		}
+		switch stat {
+		case "ready":
+			l.ready <- se
+		case "unregister":
+			l.unregister <- se
+		case "broadcast":
+			l.broadcast <- se
+		case "guess":
+			l.broadcast <- se
+		}
+	}
+}
+
+func choosedWord(m []string) []string {
+	ran := rand.Intn(len(words))
+	rw = words[ran]                               // rw => random world pickup
+	words = append(words[:ran], words[ran+1:]...) // delete the selected word
+	sow := strings.Split(rw, "")                  // sow => slice of caracters from word
+	return MixWord2(sow)                          // mixed word
+}
+
+func MixWord2(word []string) []string {
+
+	var res []string
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	for _, i := range r.Perm(len(word)) {
+		val := word[i]
+		res = append(res, val)
+	}
+	return res
+}
+
+func checkWord(guess string, w string) bool {
+	if strings.ToLower(guess) == strings.ToLower(w) {
+		return true
+	}
+	return false
+}
+
+func randUserToPlayFirst() {
+
 }

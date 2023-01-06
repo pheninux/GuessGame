@@ -22,6 +22,19 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log(data);
         id = data.socket_id;
         el.innerHTML = data.template;
+
+        const btns = document.querySelectorAll(".btn-ready");
+        btns.forEach(btn => {
+            if (btn.id !== id) {
+                btn.style.display = "none";
+            }
+        });
+        const p = document.querySelectorAll(".p-ready");
+        p.forEach(p => {
+            if (p.id === id) {
+                p.style.display = "none";
+            }
+        });
     };
 });
 
@@ -32,8 +45,22 @@ function valider() {
     socket.send(JSON.stringify(data));
 }
 
-function testSend() {
 
-    let data = {"event": "test2", "payload": "test send"};
+function readySet() {
+
+    let data = {"event": "ready", "payload": ""};
     socket.send(JSON.stringify(data));
+
+
 }
+
+function sendGuess(even) {
+    var x = event.charCode;
+    if (x == 13) {
+        var guessWord = document.querySelector('#guessWord').value
+        let data = {"event": "guess", "payload": guessWord};
+        socket.send(JSON.stringify(data));
+    }
+}
+
+
