@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="ui/static/css/main.css">
+</head>
+<style>
+
+
+</style>
+<body>
+<div id="ID" style="height: 34px ; background: aquamarine ; font-size: large"></div>
+<div id="EVEN" style="height: 34px ; background: #ffb07f ; font-size: large"></div>
+<div id="DATA" style="height: 34px ; background: #7fbfff ; font-size: large"></div>
+<script>
+
+
+    const socket = new WebSocket("ws://127.0.0.1:4000/ws?id=" + sessionStorage.getItem("currentIdCli"));
+    document.addEventListener("DOMContentLoaded", function () {
+
+        console.log("Attempting Connection...");
+        socket.onopen = () => {
+            console.log("Successfully Connected");
+        };
+        socket.onerror = error => {
+            let data = {"event": "error", "payload": error}
+            socket.send(JSON.stringify(data));
+        };
+        socket.onclose = event => {
+            console.log("Socket Closed Connection: ", event);
+            let data = {"event": "closed", "payload": event}
+            socket.send(JSON.stringify(data));
+        };
+        socket.onmessage = (msg) => {
+            console.log(msg);
+            var data = document.querySelector('#DATA');
+            var id = document.querySelector('#ID');
+            var even = document.querySelector('#EVEN');
+            let dataJson = JSON.parse(msg.data);
+            console.log(dataJson);
+            // id = data.socket_id;
+            data.innerHTML = dataJson.data;
+            id.innerHTML = dataJson.id;
+            sessionStorage.setItem("currentIdCli", dataJson.id);
+            even.innerHTML = dataJson.even;
+        };
+    });
+
+</script>
+</body>
+</html>
